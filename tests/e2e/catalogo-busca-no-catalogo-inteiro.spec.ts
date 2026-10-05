@@ -8,8 +8,9 @@
  * Isto prova, no `next start` real contra o Postgres real do job, o que um
  * gerente faz de verdade:
  *
- *   1. importa duas planilhas pela tela (o teto é 500 linhas por arquivo), 530
- *      produtos ao todo, um deles com nome que ordena DEPOIS da posição 500;
+ *   1. importa duas planilhas pela tela (o teto é 500 linhas por arquivo), 580
+ *      produtos ao todo: 530 para o teto (um deles com nome que ordena DEPOIS
+ *      da posição 500) e 50 que formam exatamente uma página cheia;
  *   2. busca esse produto pelo nome e ele aparece (na versão anterior, não);
  *   3. vê a contagem do catálogo inteiro e anda de página;
  *   4. abre uma página que não existe mais (além do total, e começando
@@ -39,7 +40,8 @@ const ALVO = `ZZZ Alvo do catalogo grande ${LOTE}`;
 test.describe.configure({ mode: "serial", timeout: 180_000 });
 
 /**
- * Os 530 produtos saem do banco no fim. A organização do seed é compartilhada
+ * Os 580 produtos saem do banco no fim (530 no run abaixo, antes de os 50 da
+ * página exata entrarem). A organização do seed é compartilhada
  * pela PARTE inteira do e2e, e no Postgres 15 do job a leitura da tela custa
  * ~2 ms por produto por causa das policies de `catalog_products` (avaliadas
  * linha a linha): deixar o catálogo grande fez as specs seguintes que abrem
@@ -98,7 +100,7 @@ test("gerente encontra produto além do 500º e anda de página", async ({ page 
   await page.goto("/app/products");
   await expect(page.getByTestId("tela-produtos")).toBeVisible();
 
-  // (1) 530 produtos pela tela, em dois arquivos.
+  // (1) 580 produtos pela tela, em dois arquivos (500 + 80).
   await importar(page, "lote-1.csv", planilha(1, 499, [`E2E-PAG-${LOTE}-ALVO,${ALVO},99`]));
   // Mais 50 com nome próprio: uma busca que dá EXATAMENTE uma página cheia.
   const cinquenta = Array.from({ length: 50 }, (_, i) => {
@@ -120,6 +122,13 @@ test("gerente encontra produto além do 500º e anda de página", async ({ page 
   await page.waitForURL((u) => u.searchParams.get("pagina") === "2", { timeout: ESPERA });
   await expect(page.getByTestId("contagem-produtos")).toHaveText(/^51–100 de 529$/, { timeout: ESPERA });
   await expect(page.getByTestId(`produto-E2E-PAG-${LOTE}-051`)).toBeVisible();
+  // Trocar de página empilha no histórico: o Voltar desfaz a página, o Avançar refaz.
+  await page.goBack();
+  await page.waitForURL((u) => !u.searchParams.has("pagina"), { timeout: ESPERA });
+  await expect(page.getByTestId("contagem-produtos")).toHaveText(/^1–50 de 529$/, { timeout: ESPERA });
+  await page.goForward();
+  await page.waitForURL((u) => u.searchParams.get("pagina") === "2", { timeout: ESPERA });
+  await expect(page.getByTestId("contagem-produtos")).toHaveText(/^51–100 de 529$/, { timeout: ESPERA });
   await page.getByTestId("pagina-anterior").click();
   await page.waitForURL((u) => !u.searchParams.has("pagina"), { timeout: ESPERA });
   await expect(page.getByTestId(`produto-E2E-PAG-${LOTE}-001`)).toBeVisible();

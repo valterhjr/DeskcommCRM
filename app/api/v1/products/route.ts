@@ -83,6 +83,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
   if (error) return fail("internal_error", "Erro ao listar os produtos.", 500, { requestId });
   if (!paginado) return ok(data ?? [], { requestId });
+  // A página que começa EXATAMENTE no total chega aqui como 206 com lista vazia
+  // (não 416): a resposta é `[]` com `meta.total` verdadeiro, igual à do 416
+  // acima, e quem chama vê pelo total que a página pedida não existe. A tela não
+  // passa por aqui: ela redireciona para a última página (`page.tsx`).
   const total = count ?? null;
   return ok(data ?? [], {
     requestId,

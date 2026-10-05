@@ -258,10 +258,16 @@ export function ProdutosClient({
 
   // A busca vai à URL — e a URL, ao servidor, que procura no catálogo INTEIRO.
   // Antes ela filtrava no navegador só os 500 que a página tinha trazido.
+  //
+  // Trocar de PÁGINA empilha no histórico (`push`): o Voltar do navegador
+  // desfaz página por página. A busca digitada SUBSTITUI (`replace`): cada
+  // pausa da digitação não vira uma entrada que o Voltar teria de atravessar.
   const irPara = React.useCallback(
-    (termo: string, novaPagina: number) => {
+    (termo: string, novaPagina: number, empilhar = false) => {
       const destino = queryDaTela(termo, novaPagina) || "?";
-      iniciarNavegacao(() => router.replace(destino, { scroll: false }));
+      iniciarNavegacao(() =>
+        empilhar ? router.push(destino, { scroll: false }) : router.replace(destino, { scroll: false }),
+      );
     },
     [router],
   );
@@ -615,7 +621,7 @@ export function ProdutosClient({
                 variant="outline"
                 size="sm"
                 disabled={pagina <= 1 || carregando}
-                onClick={() => irPara(busca, pagina - 1)}
+                onClick={() => irPara(busca, pagina - 1, true)}
                 data-testid="pagina-anterior"
               >
                 {t("Página anterior")}
@@ -624,7 +630,7 @@ export function ProdutosClient({
                 variant="outline"
                 size="sm"
                 disabled={ultimo >= total || carregando}
-                onClick={() => irPara(busca, pagina + 1)}
+                onClick={() => irPara(busca, pagina + 1, true)}
                 data-testid="proxima-pagina"
               >
                 {t("Próxima página")}

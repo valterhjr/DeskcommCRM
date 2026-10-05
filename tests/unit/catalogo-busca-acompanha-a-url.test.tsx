@@ -10,11 +10,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const replace = vi.fn();
+const push = vi.fn();
 vi.mock("@/lib/api/client", () => ({ apiClient: { post: vi.fn(), patch: vi.fn() } }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/feedback/ApiErrorToast", () => ({ showApiError: vi.fn() }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace }),
+  useRouter: () => ({ refresh: vi.fn(), push, replace }),
 }));
 vi.mock("@/hooks/i18n/useT", () => ({ useT: () => (s: string) => s }));
 
@@ -22,12 +23,12 @@ import { ProdutosClient } from "@/app/app/products/_client";
 
 const TEXTOS = { titulo: "Produtos", subtitulo: "", vazio: "", vazioDica: "" };
 
-function tela(buscaInicial: string) {
+function tela(buscaInicial: string, total = 0, pagina = 1) {
   return (
     <ProdutosClient
       inicial={[]}
-      total={0}
-      pagina={1}
+      total={total}
+      pagina={pagina}
       porPagina={50}
       buscaInicial={buscaInicial}
       urlsDasFotos={{}}
@@ -42,6 +43,7 @@ const caixa = () => screen.getByTestId("busca-produto") as HTMLInputElement;
 beforeEach(() => {
   vi.useFakeTimers();
   replace.mockClear();
+  push.mockClear();
 });
 afterEach(() => vi.useRealTimers());
 
@@ -61,5 +63,14 @@ describe("a caixa de busca e a URL", () => {
     expect(replace).toHaveBeenCalledWith("?busca=glock", { scroll: false });
     rerender(tela("glock")); // a URL respondeu ao pedido da caixa
     expect(caixa().value).toBe("glock ");
+  });
+
+  it("trocar de página EMPILHA no histórico (o Voltar desfaz página por página)", () => {
+    render(tela("g17", 120, 2));
+    fireEvent.click(screen.getByTestId("proxima-pagina"));
+    expect(push).toHaveBeenCalledWith("?busca=g17&pagina=3", { scroll: false });
+    fireEvent.click(screen.getByTestId("pagina-anterior"));
+    expect(push).toHaveBeenLastCalledWith("?busca=g17", { scroll: false });
+    expect(replace).not.toHaveBeenCalled();
   });
 });
